@@ -15,18 +15,45 @@ jobs:
 
       - name: Setup SSH key
         run: |
+          set -euo pipefail
+          HOST="${{ secrets.SERVER_HOST }}"
+          USER_NAME="${{ secrets.SERVER_USER }}"
+          PORT="${{ secrets.SERVER_PORT }}"
+          if [ -z "$PORT" ]; then PORT=22; fi
+
+          if [ -z "$HOST" ]; then
+            echo "SERVER_HOST is empty"
+            exit 1
+          fi
+          if [ -z "$USER_NAME" ]; then
+            echo "SERVER_USER is empty"
+            exit 1
+          fi
+          if [ -z "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            echo "SERVER_SSH_KEY is empty"
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
           echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          PORT="${{ secrets.SERVER_PORT }}"
-          if [ -z "$PORT" ]; then PORT=22; fi
-          ssh-keyscan -p "$PORT" -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy on server
         run: |
+          set -euo pipefail
+          HOST="${{ secrets.SERVER_HOST }}"
+          USER_NAME="${{ secrets.SERVER_USER }}"
+          DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
           PORT="${{ secrets.SERVER_PORT }}"
           if [ -z "$PORT" ]; then PORT=22; fi
-          ssh -p "$PORT" "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
+
+          if [ -z "$DEPLOY_PATH" ]; then
+            echo "DEPLOY_PATH is empty"
+            exit 1
+          fi
+
+          ssh -p "$PORT" "$USER_NAME@$HOST" << 'EOF'
           set -euo pipefail
           cd "${{ secrets.DEPLOY_PATH }}"
 
