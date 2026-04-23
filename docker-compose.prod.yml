@@ -75,11 +75,9 @@ services:
       - api
       - frontend
     ports:
-      - "80:80"
-      - "443:443"
+      - "127.0.0.1:8088:80"
     volumes:
       - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./deploy/nginx/certs:/etc/nginx/certs:ro
 
 volumes:
   pg_data:
