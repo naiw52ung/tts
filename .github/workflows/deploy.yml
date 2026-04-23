@@ -18,11 +18,15 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p "${{ secrets.SERVER_PORT }}" -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+          PORT="${{ secrets.SERVER_PORT }}"
+          if [ -z "$PORT" ]; then PORT=22; fi
+          ssh-keyscan -p "$PORT" -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Deploy on server
         run: |
-          ssh -p "${{ secrets.SERVER_PORT }}" "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
+          PORT="${{ secrets.SERVER_PORT }}"
+          if [ -z "$PORT" ]; then PORT=22; fi
+          ssh -p "$PORT" "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
           set -euo pipefail
           cd "${{ secrets.DEPLOY_PATH }}"
 
