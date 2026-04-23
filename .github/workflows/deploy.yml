@@ -53,14 +53,18 @@ jobs:
             exit 1
           fi
 
+          tar --exclude='.git' -czf /tmp/deploy.tar.gz .
+          ssh -p "$PORT" "$USER_NAME@$HOST" "mkdir -p \"$DEPLOY_PATH\""
+          scp -P "$PORT" /tmp/deploy.tar.gz "$USER_NAME@$HOST:/tmp/deploy.tar.gz"
+
           ssh -p "$PORT" "$USER_NAME@$HOST" << 'EOF'
           set -euo pipefail
           cd "${{ secrets.DEPLOY_PATH }}"
-
-          git fetch origin main
-          git checkout main
-          git pull --ff-only origin main
+          tar -xzf /tmp/deploy.tar.gz -C "${{ secrets.DEPLOY_PATH }}"
+          rm -f /tmp/deploy.tar.gz
 
           chmod +x scripts/deploy_prod.sh
           ./scripts/deploy_prod.sh
           EOF
+
+          rm -f /tmp/deploy.tar.gz
