@@ -6,6 +6,31 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+class TemplateResponse(BaseModel):
+    id: int
+    name: str
+    category: str
+    engine: str
+    description: str
+    default_requirement: str
+
+    class Config:
+        from_attributes = True
+
+
+class DryRunChange(BaseModel):
+    target_file: str
+    operation: str
+    old_content: Optional[str]
+    new_content: Optional[str]
+
+
+class DryRunResponse(BaseModel):
+    instruction: dict
+    change_count: int
+    changes: list[DryRunChange]
+
+
 class TaskResponse(BaseModel):
     id: int
     engine_id: int

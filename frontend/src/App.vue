@@ -2,12 +2,14 @@
 import { ref } from "vue";
 import { ElMessage } from "element-plus";
 import { login, register } from "./api/auth";
+import AdminView from "./views/AdminView.vue";
 import WorkbenchView from "./views/WorkbenchView.vue";
 
 const email = ref("");
 const password = ref("");
 const hasToken = ref(!!localStorage.getItem("token"));
 const loading = ref(false);
+const activePanel = ref<"workbench" | "admin">("workbench");
 
 async function doLogin() {
   loading.value = true;
@@ -59,8 +61,17 @@ function logout() {
       </el-card>
     </template>
     <template v-else>
-      <el-button type="danger" plain @click="logout" style="margin-bottom: 12px">退出登录</el-button>
-      <WorkbenchView />
+      <el-space style="margin-bottom: 12px">
+        <el-button type="danger" plain @click="logout">退出登录</el-button>
+        <el-button :type="activePanel === 'workbench' ? 'primary' : 'default'" @click="activePanel = 'workbench'">
+          工作台
+        </el-button>
+        <el-button :type="activePanel === 'admin' ? 'primary' : 'default'" @click="activePanel = 'admin'">
+          管理后台
+        </el-button>
+      </el-space>
+      <WorkbenchView v-if="activePanel === 'workbench'" />
+      <AdminView v-else />
     </template>
   </div>
 </template>

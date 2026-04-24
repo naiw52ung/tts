@@ -38,6 +38,7 @@ export REDIS_URL="memory://"
 export CELERY_TASK_ALWAYS_EAGER="true"
 export CELERY_TASK_EAGER_PROPAGATES="true"
 export STORAGE_ROOT="$ROOT_DIR/backend/local_storage"
+export ADMIN_API_KEY="${ADMIN_API_KEY:-legendai-local-admin-key}"
 mkdir -p "$STORAGE_ROOT"
 
 nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > "$RUN_DIR/backend.log" 2>&1 &

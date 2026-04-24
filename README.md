@@ -3,9 +3,13 @@
 最小可运行闭环原型：
 - 注册/登录（JWT）
 - 上传版本包 + 自然语言需求
+- 模板化输入 + Dry Run 预览
 - 异步任务队列处理（Celery）
 - MonItems 爆率修改
 - 任务进度与 SSE 日志
+- 任务取消（pending/processing）
+- 余额扣费账本 + 充值订单 mock 回调
+- 管理后台只读看板（用户/任务/失败原因）
 - 输出包下载
 
 ## 1. 启动
@@ -44,6 +48,8 @@ chmod +x scripts/local_up.sh scripts/local_down.sh scripts/verify_local_api.sh
 ./scripts/verify_local_api.sh
 ```
 
+说明：新版 `verify_local_api.sh` 会覆盖模板、dry-run、支付订单、mock 回调、任务执行与下载闭环。
+
 ## 2. 演示数据准备
 
 1. 本地创建目录 `MonItems/`，放入一个或多个 `*.txt`（可参考 `examples/MonItems_Demo.txt`）。
@@ -71,6 +77,7 @@ pytest
 - 若未配置 `DEEPSEEK_API_KEY`，系统自动使用规则解析需求。
 - 当前原型仅对 GOM/GEE + 爆率修改做最小实现。
 - 生产环境需补充病毒扫描、容器隔离、配额与计费策略。
+- 如需使用管理员接口（充值、后台、mock 支付回调），请在环境变量中配置 `ADMIN_API_KEY`。
 
 ## 6. 生产部署文件
 
@@ -97,4 +104,58 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml ps
 docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f api
 docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f worker
 docker compose --env-file .env.prod -f docker-compose.prod.yml down
+```
+
+## 7. 备份与恢复（V1）
+
+生产脚本：
+- `scripts/backup_prod.sh`：备份 PostgreSQL + `/data/storage`
+- `scripts/restore_prod.sh <backup_dir>`：从指定备份恢复
+
+使用方式：
+
+```bash
+chmod +x scripts/backup_prod.sh scripts/restore_prod.sh
+./scripts/backup_prod.sh
+# 生成目录：./backups/<timestamp>
+
+./scripts/restore_prod.sh ./backups/<timestamp>
+```
+
+可选环境变量（写在 `.env.prod` 或执行前导出）：
+- `BACKUP_ROOT`：备份根目录（默认 `./backups`）
+- `BACKUP_KEEP_DAYS`：保留天数（默认 `7`）
+
+## 8. 线上验收清单（发布后）
+
+部署完成后可按以下顺序快速验收：
+
+1) 基础健康检查
+
+```bash
+curl http://2tt2.com/api/health
+```
+
+2) 用户链路（注册 -> 模板 -> dry-run -> 提交任务）
+- 前端登录后在工作台选择模板
+- 点击 `Dry Run 预览`，确认有变更明细
+- 提交任务并确认任务最终 `success`
+
+3) 计费链路（下单 -> 模拟回调 -> 余额变化）
+- 工作台创建充值订单
+- 管理后台订单列表点击 `模拟支付成功`
+- 返回工作台确认余额自动刷新
+
+4) 管理后台链路
+- 输入 `ADMIN_API_KEY` 后刷新看板
+- 检查概览、任务、订单、失败原因统计是否有数据
+
+5) 备份与回滚演练
+
+```bash
+cd /www/wwwroot/legendai-builder
+./scripts/backup_prod.sh
+ls -la backups
+# 如需回滚：
+# ./scripts/restore_prod.sh ./backups/<timestamp>
 ```

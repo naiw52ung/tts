@@ -14,12 +14,25 @@ from app.services.llm_parser import parse_drop_requirement
 from app.worker.celery_app import celery_app
 
 
+class TaskCancelledError(Exception):
+    pass
+
+
 def append_log(db: Session, task: Task, line: str, progress: Optional[int] = None) -> None:
     task.log_text = (task.log_text or "") + line + "\n"
     if progress is not None:
         task.progress = progress
     db.add(task)
     db.commit()
+
+
+def ensure_not_cancelled(db: Session, task_id: int) -> Task:
+    task = db.get(Task, task_id)
+    if not task:
+        raise TaskCancelledError("任务不存在")
+    if task.status in {"cancelled", "cancelling"}:
+        raise TaskCancelledError("任务已取消")
+    return task
 
 
 def extract_archive(source: Path, target_dir: Path) -> None:
@@ -35,9 +48,7 @@ def extract_archive(source: Path, target_dir: Path) -> None:
 def process_legend_task(task_id: int) -> None:
     db = SessionLocal()
     try:
-        task = db.get(Task, task_id)
-        if not task:
-            return
+        task = ensure_not_cancelled(db, task_id)
         task.status = "processing"
         append_log(db, task, "任务开始处理", 5)
 
@@ -45,12 +56,15 @@ def process_legend_task(task_id: int) -> None:
         unpack_dir = task_root / "unpacked"
         output_zip = task_root / "output.zip"
 
+        ensure_not_cancelled(db, task_id)
         append_log(db, task, "正在解压上传包", 15)
         extract_archive(Path(task.original_path), unpack_dir)
 
+        ensure_not_cancelled(db, task_id)
         append_log(db, task, "正在解析需求", 30)
         instruction = parse_drop_requirement(task.req_doc_text)
 
+        ensure_not_cancelled(db, task_id)
         append_log(db, task, "正在执行爆率修改", 60)
         modified = apply_drop_rate_changes(unpack_dir, instruction)
         for item in modified:
@@ -67,13 +81,20 @@ def process_legend_task(task_id: int) -> None:
             )
         db.commit()
 
+        ensure_not_cancelled(db, task_id)
         append_log(db, task, f"修改完成，共 {len(modified)} 处变更", 80)
         append_log(db, task, "正在打包输出", 90)
         shutil.make_archive(str(output_zip.with_suffix("")), "zip", str(unpack_dir))
 
+        ensure_not_cancelled(db, task_id)
         task.output_path = str(output_zip)
         task.status = "success"
         append_log(db, task, "任务完成", 100)
+    except TaskCancelledError:
+        task = db.get(Task, task_id)
+        if task:
+            task.status = "cancelled"
+            append_log(db, task, "任务已取消", task.progress or 0)
     except Exception as exc:
         task = db.get(Task, task_id)
         if task:

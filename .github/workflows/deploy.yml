@@ -63,8 +63,24 @@ jobs:
           tar -xzf /tmp/deploy.tar.gz -C "${{ secrets.DEPLOY_PATH }}"
           rm -f /tmp/deploy.tar.gz
 
-          chmod +x scripts/deploy_prod.sh
+          chmod +x scripts/backup_prod.sh scripts/deploy_prod.sh
+          echo "[pre-deploy] running backup_prod.sh"
+          ./scripts/backup_prod.sh
+
           ./scripts/deploy_prod.sh
           EOF
 
           rm -f /tmp/deploy.tar.gz
+
+      - name: Show recent backups on failure
+        if: failure()
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.SERVER_HOST }}"
+          USER_NAME="${{ secrets.SERVER_USER }}"
+          DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+          PORT="${{ secrets.SERVER_PORT }}"
+          if [ -z "$PORT" ]; then PORT=22; fi
+
+          echo "[failure-debug] latest backups under $DEPLOY_PATH/backups"
+          ssh -p "$PORT" "$USER_NAME@$HOST" "ls -1dt \"$DEPLOY_PATH\"/backups/* 2>/dev/null | head -n 3 || true"

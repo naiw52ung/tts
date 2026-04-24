@@ -6,3 +6,10 @@ __pycache__/
 node_modules/
 dist/
 storage/
+.run/
+backups/
+backend/.venv/
+backend/*.db
+backend/local_storage/
+backend/local_storage_test*/
+*.zip

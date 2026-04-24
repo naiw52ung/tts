@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models.user import User
+from app.services.billing import TRIAL_BALANCE
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 
 router = APIRouter()
@@ -15,7 +16,12 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> TokenRe
     existing = db.scalar(select(User).where(User.email == payload.email))
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
-    user = User(email=payload.email, password_hash=hash_password(payload.password), phone=payload.phone)
+    user = User(
+        email=payload.email,
+        password_hash=hash_password(payload.password),
+        phone=payload.phone,
+        balance=TRIAL_BALANCE,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
