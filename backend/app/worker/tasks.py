@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.task import ModifyInstruction, Task
 from app.services.legend_modifier import apply_drop_rate_changes
+from app.services.learning import upsert_learning_sample
 from app.services.llm_parser import parse_drop_requirement
 from app.worker.celery_app import celery_app
 
@@ -95,11 +96,20 @@ def process_legend_task(task_id: int) -> None:
         if task:
             task.status = "cancelled"
             append_log(db, task, "任务已取消", task.progress or 0)
+            upsert_learning_sample(db, task)
+            db.commit()
     except Exception as exc:
         task = db.get(Task, task_id)
         if task:
             task.status = "failed"
             task.error_msg = str(exc)
             append_log(db, task, f"任务失败: {exc}", task.progress or 0)
+            upsert_learning_sample(db, task)
+            db.commit()
+    else:
+        task = db.get(Task, task_id)
+        if task and task.status in {"success", "failed", "cancelled"}:
+            upsert_learning_sample(db, task)
+            db.commit()
     finally:
         db.close()

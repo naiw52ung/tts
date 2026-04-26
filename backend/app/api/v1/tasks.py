@@ -14,10 +14,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.security import decode_access_token
 from app.db.session import get_db
+from app.models.learning import TaskFeedback
 from app.models.task import Task
 from app.models.template import PromptTemplate
 from app.models.user import User
-from app.schemas.task import DryRunResponse, TaskResponse, TemplateResponse
+from app.schemas.task import DryRunResponse, TaskFeedbackRequest, TaskResponse, TemplateResponse
 from app.services.billing import DEFAULT_TASK_COST, charge_task_cost
 from app.services.legend_modifier import apply_drop_rate_changes
 from app.services.llm_parser import parse_drop_requirement
@@ -171,6 +172,41 @@ def cancel_task(
     db.commit()
     db.refresh(task)
     return task
+
+
+@router.post("/{task_id}/feedback")
+def submit_task_feedback(
+    task_id: int,
+    payload: TaskFeedbackRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    if payload.rating not in {"good", "bad"}:
+        raise HTTPException(status_code=400, detail="rating must be good or bad")
+    task = db.scalar(select(Task).where(Task.id == task_id, Task.user_id == current_user.id))
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task.status not in {"success", "failed", "cancelled"}:
+        raise HTTPException(status_code=400, detail="Task is not finished yet")
+    feedback = db.scalar(
+        select(TaskFeedback).where(TaskFeedback.task_id == task_id, TaskFeedback.user_id == current_user.id)
+    )
+    if feedback:
+        feedback.rating = payload.rating
+        feedback.comment = payload.comment
+        db.add(feedback)
+        db.commit()
+        return {"task_id": task_id, "rating": feedback.rating, "updated": True}
+    db.add(
+        TaskFeedback(
+            task_id=task_id,
+            user_id=current_user.id,
+            rating=payload.rating,
+            comment=payload.comment,
+        )
+    )
+    db.commit()
+    return {"task_id": task_id, "rating": payload.rating, "updated": False}
 
 
 @router.get("")

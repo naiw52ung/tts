@@ -62,6 +62,11 @@ export async function cancelTask(taskId: number) {
   return data;
 }
 
+export async function submitTaskFeedback(taskId: number, rating: "good" | "bad", comment = "") {
+  const { data } = await api.post(`/tasks/${taskId}/feedback`, { rating, comment });
+  return data;
+}
+
 export function taskDownloadUrl(taskId: number): string {
   const base = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
   return `${base}/tasks/${taskId}/download`;

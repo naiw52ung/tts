@@ -2,7 +2,7 @@
 import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { createPaymentOrder, listPaymentOrders } from "../api/payments";
-import { cancelTask, createTask, dryRunTask, listTasks, listTemplates, taskDownloadUrl } from "../api/tasks";
+import { cancelTask, createTask, dryRunTask, listTasks, listTemplates, submitTaskFeedback, taskDownloadUrl } from "../api/tasks";
 import { getMe } from "../api/users";
 
 const engine = ref("GOM");
@@ -133,6 +133,11 @@ async function createOrder() {
   await refreshOrders();
 }
 
+async function feedbackTask(taskId: number, rating: "good" | "bad") {
+  await submitTaskFeedback(taskId, rating);
+  ElMessage.success(rating === "good" ? "已记录：满意" : "已记录：不满意");
+}
+
 onMounted(async () => {
   await refreshMe();
   await refreshOrders();
@@ -245,7 +250,7 @@ function watchLogs(taskId: number) {
         </template>
       </el-table-column>
       <el-table-column prop="req_doc_text" label="需求" />
-      <el-table-column label="操作" width="220">
+      <el-table-column label="操作" width="320">
         <template #default="scope">
           <el-button size="small" @click="watchLogs(scope.row.id)">查看日志</el-button>
           <el-button
@@ -259,6 +264,24 @@ function watchLogs(taskId: number) {
           </el-button>
           <a v-if="scope.row.status === 'success'" :href="taskDownloadUrl(scope.row.id)" target="_blank">下载输出包</a>
           <span v-else>-</span>
+          <el-button
+            v-if="['success', 'failed', 'cancelled'].includes(scope.row.status)"
+            size="small"
+            type="success"
+            plain
+            @click="feedbackTask(scope.row.id, 'good')"
+          >
+            满意
+          </el-button>
+          <el-button
+            v-if="['success', 'failed', 'cancelled'].includes(scope.row.status)"
+            size="small"
+            type="danger"
+            plain
+            @click="feedbackTask(scope.row.id, 'bad')"
+          >
+            不满意
+          </el-button>
         </template>
       </el-table-column>
     </el-table>

@@ -31,6 +31,11 @@ class DryRunResponse(BaseModel):
     changes: list[DryRunChange]
 
 
+class TaskFeedbackRequest(BaseModel):
+    rating: str
+    comment: Optional[str] = None
+
+
 class TaskResponse(BaseModel):
     id: int
     engine_id: int
